@@ -1,0 +1,9 @@
+{
+  "name": "riyadhnow-web",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npx --yes http-server . -p ${PORT:-8080} -a 0.0.0.0 -c-1",
+    "dev": "npx --yes http-server . -p 8080 -a 0.0.0.0 -c-1"
+  }
+}

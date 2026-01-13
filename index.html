@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>RiyadhNow — Smart Map</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<link rel="stylesheet" href="styles.css" />
+<!-- Firebase Analytics (GA4) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAYpGdVodmCGlvD--fK1fvcOX3urf17Zj0",
+    authDomain: "riyadhnow-web-11983408-d940e.firebaseapp.com",
+    projectId: "riyadhnow-web-11983408-d940e",
+    storageBucket: "riyadhnow-web-11983408-d940e.firebasestorage.app",
+    messagingSenderId: "853594102106",
+    appId: "1:853594102106:web:f1c3365c6da73a24f27b63",
+    measurementId: "G-MHVRB87LMM"
+  };
+
+  const app = initializeApp(firebaseConfig);
+
+  // Enable analytics only when supported (avoids console errors in some environments)
+  isSupported().then((ok) => {
+    if (ok) getAnalytics(app);
+  }).catch(() => {
+    // no-op
+  });
+</script>
+</head>
+<body>
+  <div class="app">
+    <!-- Map canvas -->
+    <main class="map" aria-label="Map">
+      <div id="map" aria-label="Map"></div>
+
+      <!-- ALWAYS VISIBLE TOP BAR -->
+      <div class="topbar" aria-label="Top controls">
+        <!-- Search with embedded District selector -->
+        <div class="search search--combo">
+          <span class="search__icon" aria-hidden="true">🔎</span>
+
+          <select id="district" class="search__select" aria-label="الحي">
+            <option value="all">الكل</option>
+            <option value="Olaya">Olaya</option>
+            <option value="Nakheel">Nakheel</option>
+            <option value="Yasmin">Yasmin</option>
+            <option value="Sulaimaniyah">Sulaimaniyah</option>
+            <option value="Qurtubah">Qurtubah</option>
+          </select>
+
+          <div class="search__divider" aria-hidden="true"></div>
+
+          <input id="q" class="search__input" type="search" placeholder="ابحث بالوسم... مثال: برجر، قهوة، جلسة..." autocomplete="off" />
+
+          <button id="clearQ" class="iconbtn" title="مسح" aria-label="مسح البحث">✕</button>
+        </div>
+
+        <!-- COMBINED ROW: Insights + Categories as dropdown pills -->
+        <div class="topChips" aria-label="Insights and categories row">
+          <button class="chip chip--top" data-menu="insightTop">
+            <span class="chip__label">الترشيحات</span>
+            <span class="chip__value" id="insightTopValue">الكل</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button class="chip chip--top" data-menu="catsTop">
+            <span class="chip__label">التصنيفات</span>
+            <span class="chip__value" id="catsTopValue">الكل</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button class="chip chip--top chip--icon" id="resetTop" type="button" title="إعادة ضبط" aria-label="إعادة ضبط">↺</button>
+        </div>
+
+        <!-- Top menus (for combined row) -->
+        <div class="topMenus">
+          <div class="menu menu--top" id="menu-insightTop" role="dialog" aria-label="Insight menu (top)">
+            <div class="menu__title">الترشيحات</div>
+            <div class="menu__items" id="insightTopItems"></div>
+          </div>
+
+          <div class="menu menu--top" id="menu-catsTop" role="dialog" aria-label="Categories menu (top)">
+            <div class="menu__title">التصنيفات</div>
+            <div class="menu__sub">اختر أكثر من تصنيف</div>
+            <div class="menu__items menu__items--wrap" id="catsTopItems"></div>
+            <div class="menu__actions">
+              <button class="btn btn--ghost" id="clearCatsTop">مسح</button>
+              <button class="btn" id="applyCatsTop">تطبيق</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <button class="locateBtn" id="locateBtn" aria-label="Locate me" title="Locate me">📍</button>
+
+      <!-- NOTE: mockup pin dots removed for real map -->
+    </main>
+
+    <!-- Unified Panel (collapsible) -->
+    <aside class="panel" id="panel" aria-label="Filters and results">
+      <div class="panel__handle" id="panelHandle" aria-label="Drag to resize panel">
+        <div class="grab" aria-hidden="true"></div>
+        <button class="collapseBtn" id="collapseBtn" aria-label="Collapse panel" title="Collapse">▾</button>
+      </div>
+
+      <header class="panel__top">
+        <!-- One-row filters like Google Maps -->
+        <div class="filtersRow" aria-label="Quick filters row">
+          <button class="chip" data-menu="sentiment">
+            <span class="chip__label">المشاعر</span>
+            <span class="chip__value" id="sentimentValue">الكل</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button class="chip" data-menu="price">
+            <span class="chip__label">السعر</span>
+            <span class="chip__value" id="priceValue">الكل</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button class="chip" data-menu="tags">
+            <span class="chip__label">وسوم</span>
+            <span class="chip__value" id="tagsValue">الكل</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button class="chip" data-menu="heatmap">
+            <span class="chip__label">Heatmap</span>
+            <span class="chip__value" id="heatmapValue">Off</span>
+            <span class="chip__chev">▾</span>
+          </button>
+
+          <button id="resetAll" class="chip chip--ghost">
+            <span class="chip__label">إعادة</span>
+            <span class="chip__value">الضبط</span>
+          </button>
+        </div>
+
+        <!-- Panel dropdown menus -->
+        <div class="menus">
+          <div class="menu" id="menu-sentiment" role="dialog" aria-label="Sentiment menu">
+            <div class="menu__title">المشاعر</div>
+            <div class="menu__items" id="sentimentItems"></div>
+          </div>
+
+          <div class="menu" id="menu-price" role="dialog" aria-label="Price menu">
+            <div class="menu__title">السعر</div>
+            <div class="menu__items" id="priceItems"></div>
+          </div>
+
+          <div class="menu" id="menu-tags" role="dialog" aria-label="Tags menu">
+            <div class="menu__title">وسوم</div>
+            <div class="menu__sub" id="tagsSub">اختر أكثر من وسم</div>
+            <div class="menu__search" aria-label="بحث الوسوم">
+              <input id="tagsSearch" class="menu__searchInput" type="search" placeholder="ابحث عن وسم..." autocomplete="off" />
+              <button id="tagsSearchClear" class="iconbtn" title="مسح" aria-label="مسح بحث الوسوم">✕</button>
+            </div>
+            <div class="menu__items menu__items--wrap" id="tagsItems"></div>
+            <div class="menu__actions">
+              <button class="btn btn--ghost" id="clearTags">مسح الوسوم</button>
+              <button class="btn" id="applyTags">تطبيق</button>
+            </div>
+          </div>
+
+          <div class="menu" id="menu-heatmap" role="dialog" aria-label="Heatmap menu">
+            <div class="menu__title">Heatmap</div>
+            <div class="menu__items" id="heatmapItems"></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="results">
+        <div class="results__head">
+          <div class="results__title" id="resultsTitle">قائمة الأماكن</div>
+          <div class="results__meta" id="resultsMeta">—</div>
+        </div>
+
+        <div id="resultsList" class="results__list" aria-label="Results list"></div>
+      </section>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
