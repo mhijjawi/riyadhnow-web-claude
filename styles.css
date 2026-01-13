@@ -167,7 +167,6 @@ body{
 }
 
 .search__input{
-  flex:1;
   border:0;
   outline:none;
   background: transparent;

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UI Test - RiyadhNow</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      padding: 40px;
+      background: linear-gradient(135deg, #1a2533, #0c1118);
+      min-height: 100vh;
+    }
+    .test-section {
+      margin-bottom: 40px;
+      padding: 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+    }
+    .test-title {
+      color: white;
+      font-weight: 900;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    .test-grid {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div style="max-width: 1200px; margin: 0 auto;">
+
+    <!-- Test 1: Filter Chips (Top) -->
+    <div class="test-section">
+      <div class="test-title">1. Top Filter Chips (Dark Background)</div>
+      <div class="topChips">
+        <button class="chip chip--top">
+          <span class="chip__label">الترشيحات</span>
+          <span class="chip__value">الكل</span>
+          <span class="chip__chev">▾</span>
+        </button>
+        <button class="chip chip--top">
+          <span class="chip__label">التصنيفات</span>
+          <span class="chip__value">مطاعم</span>
+          <span class="chip__chev">▾</span>
+        </button>
+        <button class="chip chip--top chip--icon">↺</button>
+      </div>
+      <p style="color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 12px;">
+        ✅ Should lift on hover, chevron should bounce, shadow should grow
+      </p>
+    </div>
+
+    <!-- Test 2: Panel Filter Chips (Light Background) -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">2. Panel Filter Chips (Light Background)</div>
+      <div class="filtersRow">
+        <button class="chip">
+          <span class="chip__label">المشاعر</span>
+          <span class="chip__value">الكل</span>
+          <span class="chip__chev">▾</span>
+        </button>
+        <button class="chip">
+          <span class="chip__label">السعر</span>
+          <span class="chip__value">$$</span>
+          <span class="chip__chev">▾</span>
+        </button>
+        <button class="chip">
+          <span class="chip__label">وسوم</span>
+          <span class="chip__value">الكل</span>
+          <span class="chip__chev">▾</span>
+        </button>
+      </div>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Should have subtle lift on hover, border should darken
+      </p>
+    </div>
+
+    <!-- Test 3: Menu Options -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">3. Menu Options</div>
+      <div class="test-grid">
+        <div style="flex: 1; min-width: 200px;">
+          <div class="opt">
+            <span>إيجابي</span>
+            <span class="badge">1,234</span>
+          </div>
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <div class="opt is-active">
+            <span>محايد</span>
+            <span class="badge">567</span>
+          </div>
+        </div>
+      </div>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Should slide left on hover, active should have ring shadow
+      </p>
+    </div>
+
+    <!-- Test 4: Chip Options -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">4. Chip-Style Options</div>
+      <div class="test-grid">
+        <div class="opt opt--chip">مقهى</div>
+        <div class="opt opt--chip is-active">مطعم</div>
+        <div class="opt opt--chip">حديقة</div>
+      </div>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Active should be white text on black background
+      </p>
+    </div>
+
+    <!-- Test 5: Result Cards -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">5. Result Cards</div>
+      <div class="card">
+        <div class="card__top">
+          <div>
+            <div class="card__name">مطعم راقي فاخر</div>
+            <div class="card__sub">العليا • مطعم</div>
+          </div>
+          <div style="font-size: 24px;">🍽️</div>
+        </div>
+        <div class="card__stats">
+          <div class="stat">⭐ 4.5</div>
+          <div class="stat">📊 500</div>
+          <div class="stat">💎 0.9</div>
+        </div>
+      </div>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Should lift up on hover, shadow should increase
+      </p>
+    </div>
+
+    <!-- Test 6: Buttons -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">6. Buttons</div>
+      <div class="test-grid">
+        <button class="btn">تطبيق</button>
+        <button class="btn btn--ghost">مسح</button>
+      </div>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Should lift on hover, shadow should grow
+      </p>
+    </div>
+
+    <!-- Test 7: Search Bar -->
+    <div class="test-section">
+      <div class="test-title">7. Search Bar</div>
+      <div class="search">
+        <span class="search__icon">🔎</span>
+        <select class="search__select">
+          <option>الكل</option>
+          <option>العليا</option>
+        </select>
+        <div class="search__divider"></div>
+        <input type="text" class="search__input" placeholder="ابحث بالوسم... مثال: برجر، قهوة">
+        <button class="iconbtn">✕</button>
+      </div>
+      <p style="color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 12px;">
+        ✅ Should show focus ring when clicked, icon should brighten
+      </p>
+    </div>
+
+    <!-- Test 8: Toast (trigger with button) -->
+    <div class="test-section" style="background: white; padding: 30px;">
+      <div class="test-title" style="color: black;">8. Toast Notification</div>
+      <button class="btn" onclick="testToast()">Show Toast</button>
+      <p style="color: rgba(0,0,0,0.5); margin-top: 10px; font-size: 12px;">
+        ✅ Should slide in from top, fade in smoothly
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    function testToast() {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast--success';
+      toast.textContent = '✅ تم التحديث بنجاح!';
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
