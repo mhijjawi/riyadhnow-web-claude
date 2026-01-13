@@ -1,3 +1,54 @@
+// ================================
+// Toast Notification System
+// ================================
+function showToast(message, type = "info", duration = 4000) {
+  try {
+    const container = document.getElementById("toastContainer");
+    if (!container) {
+      console.error("[Toast] Container not found");
+      return;
+    }
+
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "polite");
+
+    container.appendChild(toast);
+
+    // Auto-dismiss after duration
+    const dismissTimeout = setTimeout(() => {
+      dismissToast(toast);
+    }, duration);
+
+    // Allow click to dismiss
+    toast.addEventListener("click", () => {
+      clearTimeout(dismissTimeout);
+      dismissToast(toast);
+    });
+
+    return toast;
+  } catch (error) {
+    console.error("[Toast] Failed to show toast:", error);
+    // Fallback to alert if toast system fails
+    if (typeof alert === "function") alert(message);
+  }
+}
+
+function dismissToast(toast) {
+  try {
+    toast.classList.add("hiding");
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300); // Match animation duration
+  } catch (error) {
+    console.error("[Toast] Failed to dismiss toast:", error);
+  }
+}
+
 // Performance hint: avoid Chrome Canvas2D getImageData warning (leaflet-heat)
 // Safe monkey-patch: request willReadFrequently for 2D contexts.
 (() => {
@@ -17,6 +68,144 @@
 
 // Responsive helper
 const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
+
+// ================================
+// Input Validation for API Responses
+// ================================
+function validatePlaceData(p) {
+  if (!p || typeof p !== 'object') {
+    return { valid: false, reason: "not_an_object" };
+  }
+
+  // Must have a valid ID
+  if (!p.place_id && !p.id && !p.gid) {
+    return { valid: false, reason: "missing_id" };
+  }
+
+  // Must have valid coordinates
+  const lat = Number(p.lat ?? p.latitude);
+  const lng = Number(p.lng ?? p.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { valid: false, reason: "invalid_coordinates" };
+  }
+
+  // Coordinates must be in reasonable range
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return { valid: false, reason: "coordinates_out_of_range" };
+  }
+
+  // Should have a name (warn but don't reject)
+  if (!p.name || typeof p.name !== 'string' || p.name.trim().length === 0) {
+    console.warn("[Validation] Place missing name:", p.place_id || p.id);
+  }
+
+  return { valid: true };
+}
+
+function validateAPIResponse(payload, source = "unknown") {
+  try {
+    // Check if payload exists
+    if (!payload || typeof payload !== 'object') {
+      console.error(`[Validation] Invalid ${source} response: not an object`);
+      return { valid: false, error: "Invalid response format" };
+    }
+
+    // Check if results array exists
+    if (!Array.isArray(payload.results)) {
+      console.error(`[Validation] Invalid ${source} response: missing results array`);
+      return { valid: false, error: "Missing results array" };
+    }
+
+    // Check if results is empty
+    if (payload.results.length === 0) {
+      console.warn(`[Validation] ${source} response has no results`);
+      return { valid: true, results: [] };
+    }
+
+    // Validate each place and filter out invalid ones
+    const validResults = [];
+    const invalidCount = { total: 0, reasons: {} };
+
+    for (const place of payload.results) {
+      const validation = validatePlaceData(place);
+      if (validation.valid) {
+        validResults.push(place);
+      } else {
+        invalidCount.total++;
+        invalidCount.reasons[validation.reason] = (invalidCount.reasons[validation.reason] || 0) + 1;
+      }
+    }
+
+    if (invalidCount.total > 0) {
+      console.warn(`[Validation] Filtered out ${invalidCount.total} invalid places from ${source}:`, invalidCount.reasons);
+    }
+
+    return { valid: true, results: validResults, filtered: invalidCount.total };
+  } catch (error) {
+    console.error(`[Validation] Error validating ${source} response:`, error);
+    return { valid: false, error: error.message };
+  }
+}
+
+// ================================
+// API Retry Logic with Exponential Backoff
+// ================================
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // If successful, return immediately
+      if (response.ok) {
+        return response;
+      }
+
+      // If rate limited (429), wait and retry
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
+        const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.pow(2, attempt) * 1000;
+        console.warn(`[API] Rate limited (429). Retrying after ${waitTime}ms... (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      // If server error (5xx), retry with exponential backoff
+      if (response.status >= 500 && response.status < 600) {
+        if (attempt < maxRetries - 1) {
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.warn(`[API] Server error (${response.status}). Retrying after ${waitTime}ms... (attempt ${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+      }
+
+      // For other errors (4xx except 429), don't retry
+      return response;
+
+    } catch (error) {
+      lastError = error;
+
+      // Network errors - retry with exponential backoff
+      if (attempt < maxRetries - 1) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.warn(`[API] Network error. Retrying after ${waitTime}ms... (attempt ${attempt + 1}/${maxRetries})`, error);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+    }
+  }
+
+  // If all retries failed, throw the last error
+  if (lastError) {
+    throw lastError;
+  }
+
+  // This shouldn't happen, but just in case
+  throw new Error("Failed to fetch after maximum retries");
+}
 
 // ================================
 // GA4 events helper (production-safe; no-op if blocked)
@@ -139,20 +328,24 @@ async function fetchPlacesCached(requestUrl) {
       const cachedResp = await cache.match(requestUrl);
       if (cachedResp) {
         if (!isFresh) {
+          // Background refresh with retry logic
           (async () => {
             try {
-              const net = await fetch(requestUrl, { cache: "no-store" });
+              const net = await fetchWithRetry(requestUrl, { cache: "no-store" }, 3);
               if (net.ok) {
                 await cache.put(requestUrl, net.clone());
                 writePlacesCacheMeta({ url: requestUrl, ts: Date.now() });
               }
-            } catch (_e) { }
+            } catch (error) {
+              console.error("[Cache] Background refresh failed:", error);
+            }
           })();
         }
         const payload = await cachedResp.json();
         return { payload, source: isFresh ? "cache_fresh" : "cache_stale" };
       }
-      const net = await fetch(requestUrl, { cache: "no-store" });
+      // No cache hit - fetch with retry
+      const net = await fetchWithRetry(requestUrl, { cache: "no-store" }, 3);
       if (net.ok) {
         await cache.put(requestUrl, net.clone());
         writePlacesCacheMeta({ url: requestUrl, ts: Date.now() });
@@ -160,9 +353,12 @@ async function fetchPlacesCached(requestUrl) {
       const payload = await net.json();
       return { payload, source: "network" };
     }
-  } catch (_e) { /* fall through */ }
+  } catch (error) {
+    console.error("[Cache] Cache operation failed, falling back to direct fetch:", error);
+  }
 
-  const net = await fetch(requestUrl, { cache: "no-store" });
+  // Fallback to direct fetch with retry
+  const net = await fetchWithRetry(requestUrl, { cache: "no-store" }, 3);
   const payload = await net.json();
   return { payload, source: "network_nocache" };
 }
@@ -395,7 +591,7 @@ function initLocateMe() {
   };
 
   const showError = (msg) => {
-    try { alert(msg); } catch (_e) { }
+    try { showToast(msg, "error", 5000); } catch (_e) { }
   };
 
   const onLocate = (ev) => {
@@ -473,29 +669,103 @@ function clearMarkers() {
 // ================================
 // Insights config (toggle_config.json)
 // ================================
+// SECURITY: Safe predicate evaluator - NO eval() or new Function()
+// This evaluates simple predicates from config without code execution risks
 function compilePredicate(codeStr) {
   try {
-    const fn = new Function("p", String(codeStr));
-    return (p) => {
-      try { return !!fn(p); } catch { return false; }
-    };
+    const code = String(codeStr || "").trim();
+    if (!code || code === "return true;") return (_) => true;
+
+    // Safe evaluation: parse the predicate pattern and create a function
+    // Pattern 1: must_go style - bayes2_score >= X && rating_count >= Y && sentiment check
+    const mustGoMatch = code.match(/b2\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)\s*&&\s*s\s*!==\s*['"]([^'"]+)['"]/);
+    if (mustGoMatch) {
+      const minBayes = parseFloat(mustGoMatch[1]);
+      const minReviews = parseInt(mustGoMatch[2], 10);
+      const excludeSentiment = mustGoMatch[3];
+      return (p) => {
+        const b2 = p.bayes2_score ?? 0.50;
+        const v = p.rating_count ?? 0;
+        const s = p.sentiment_label_ar || '';
+        return b2 >= minBayes && v >= minReviews && s !== excludeSentiment;
+      };
+    }
+
+    // Pattern 2: top_rated style - rating >= X && rating_count >= Y
+    const topRatedMatch = code.match(/r\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)/);
+    if (topRatedMatch) {
+      const minRating = parseFloat(topRatedMatch[1]);
+      const minReviews = parseInt(topRatedMatch[2], 10);
+      return (p) => {
+        const r = p.rating ?? 0;
+        const v = p.rating_count ?? 0;
+        return r >= minRating && v >= minReviews;
+      };
+    }
+
+    // Pattern 3: raqi style - text search in fields
+    const raqiMatch = code.match(/const q\s*=\s*['"]([^'"]+)['"]/);
+    if (raqiMatch) {
+      const searchTerm = raqiMatch[1].toLowerCase();
+      return (p) => {
+        const haystack = `${p.name} ${(p.tags||[]).join(' ')} ${p.category} ${p.district}`.toLowerCase();
+        return haystack.includes(searchTerm);
+      };
+    }
+
+    // Pattern 4: discover style - rating range && review count range && sentiment check
+    const discoverMatch = code.match(/r\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)\s*&&\s*v\s*<=\s*(\d+)\s*&&\s*s\s*!==\s*['"]([^'"]+)['"]/);
+    if (discoverMatch) {
+      const minRating = parseFloat(discoverMatch[1]);
+      const minReviews = parseInt(discoverMatch[2], 10);
+      const maxReviews = parseInt(discoverMatch[3], 10);
+      const excludeSentiment = discoverMatch[4];
+      return (p) => {
+        const r = p.rating ?? 0;
+        const v = p.rating_count ?? 0;
+        const s = p.sentiment_label_ar || '';
+        return r >= minRating && v >= minReviews && v <= maxReviews && s !== excludeSentiment;
+      };
+    }
+
+    console.warn("[Security] Unknown predicate pattern - using safe default (allow all):", code.substring(0, 100));
+    return (_) => true;
   } catch (e) {
-    console.warn("Invalid predicate snippet", e);
+    console.error("[Security] Predicate compilation error:", e);
     return (_) => true;
   }
 }
+
 function compileHeat(codeStr) {
   try {
-    const fn = new Function("p", String(codeStr));
-    return (p) => {
-      try {
-        const v = fn(p);
+    const code = String(codeStr || "").trim();
+    if (!code) return (_) => 0;
+
+    // Safe heat evaluation - only allow accessing known numeric fields
+    // Pattern: "return (p.field_name ?? default);"
+    const fieldMatch = code.match(/return\s*\(\s*p\.(\w+)\s*\?\?\s*([\d.]+)\s*\)\s*;?/);
+    if (fieldMatch) {
+      const fieldName = fieldMatch[1];
+      const defaultValue = parseFloat(fieldMatch[2]) || 0;
+
+      // Whitelist of allowed numeric fields
+      const allowedFields = ['bayes2_score', 'rating', 'rating_count', 'trust_score'];
+      if (!allowedFields.includes(fieldName)) {
+        console.warn("[Security] Unsafe heat field access attempt:", fieldName);
+        return (_) => 0;
+      }
+
+      return (p) => {
+        const v = p[fieldName] ?? defaultValue;
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
-      } catch { return 0; }
-    };
+      };
+    }
+
+    console.warn("[Security] Unknown heat pattern - using safe default (0):", code.substring(0, 100));
+    return (_) => 0;
   } catch (e) {
-    console.warn("Invalid heat snippet", e);
+    console.error("[Security] Heat compilation error:", e);
     return (_) => 0;
   }
 }
@@ -554,8 +824,9 @@ function popupHtml(p) {
   const price = p.price_bucket_ar ? `السعر: ${escHtml(p.price_bucket_ar)}` : "";
   const sent = p.sentiment_label_ar ? `الانطباع: ${escHtml(p.sentiment_label_ar)}` : "";
   const meta = [price, sent].filter(Boolean).join(" • ");
-  const g = p.link ? `<a href="${escHtml(p.link)}" target="_blank" style="font-weight:900;text-decoration:none;">Google Maps</a>` : "";
-  const btn = `<button class="rnPopBtn" onclick="window.findSimilar && window.findSimilar('${String(p.id).replace(/'/g, "")}', 'popup')">🔎 مشابه</button>`;
+  const g = p.link ? `<a href="${escHtml(p.link)}" target="_blank" rel="noopener noreferrer" style="font-weight:900;text-decoration:none;">Google Maps</a>` : "";
+  // SECURITY FIX: Use data attribute instead of inline onclick handler
+  const btn = `<button class="rnPopBtn" data-place-id="${escHtml(String(p.id))}" data-action="find-similar">🔎 مشابه</button>`;
   return `
     <div style="direction:rtl;text-align:right;max-width:260px;font-family:inherit;">
       <div style="font-weight:900;font-size:14px;line-height:1.25;">${name}</div>
@@ -810,12 +1081,12 @@ window.findSimilar = async function (place_id, source = "ui") {
     url.searchParams.set("k", "40");
     url.searchParams.set("min_sim", "0");
 
-    const resp = await fetch(url.toString(), { method: "GET" });
+    const resp = await fetchWithRetry(url.toString(), { method: "GET" }, 3);
     if (!resp.ok) {
       const raw = await resp.text().catch(() => "");
       gaEvent("similar_error", { place_id: String(place_id), http_status: resp.status });
-      alert(`تعذر تحميل أماكن مشابهة (HTTP ${resp.status}).`);
-      console.warn("similar_places failed", resp.status, raw.slice(0, 300));
+      showToast(`تعذر تحميل أماكن مشابهة (HTTP ${resp.status}).`, "error", 5000);
+      console.error("[API Error] Similar places failed:", resp.status, raw.slice(0, 300));
       exitSimilarMode("http_error");
       return;
     }
@@ -826,9 +1097,9 @@ window.findSimilar = async function (place_id, source = "ui") {
     gaEvent("similar_success", { place_id: String(place_id), results_count: results.length });
     enterSimilarMode(anchor, results);
   } catch (e) {
-    console.warn("similar_places fetch error", e);
+    console.error("[API Error] Similar places fetch error:", e);
     gaEvent("similar_error", { place_id: String(place_id), http_status: 0 });
-    alert("تعذر تحميل أماكن مشابهة. حاول مرة أخرى.");
+    showToast("تعذر تحميل أماكن مشابهة. حاول مرة أخرى.", "error", 5000);
     exitSimilarMode("exception");
   }
 };
@@ -1159,13 +1430,21 @@ async function loadRealPlacesAndBootstrapUI() {
   url.searchParams.set("sort", "bayes2_desc");
 
   const { payload } = await fetchPlacesCached(url.toString());
-  if (!payload || payload.ok !== true || !Array.isArray(payload.results)) {
-    console.warn("Places API returned unexpected shape:", payload);
+
+  // Validate API response
+  const validation = validateAPIResponse(payload, "places_api");
+  if (!validation.valid) {
+    console.error("[Data Loading] Invalid API response:", validation.error);
+    showToast("فشل تحميل البيانات. يرجى المحاولة مرة أخرى.", "error", 5000);
     DATA = [];
     return;
   }
 
-  DATA = payload.results.map((p) => {
+  if (validation.filtered > 0) {
+    console.warn(`[Data Loading] Filtered out ${validation.filtered} invalid places`);
+  }
+
+  DATA = validation.results.map((p) => {
     const tags = Array.isArray(p.tags) ? p.tags
       : Array.isArray(p.tags_ar) ? p.tags_ar
         : Array.isArray(p.top_tags) ? p.top_tags
@@ -1647,4 +1926,16 @@ window.addEventListener("load", () => {
 
 window.addEventListener("DOMContentLoaded", () => {
   init().catch(err => console.error(err));
+
+  // SECURITY FIX: Event delegation for popup buttons (replaces inline onclick)
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action='find-similar']");
+    if (btn) {
+      e.preventDefault();
+      const placeId = btn.getAttribute("data-place-id");
+      if (placeId && typeof window.findSimilar === "function") {
+        window.findSimilar(placeId, "popup");
+      }
+    }
+  });
 });
