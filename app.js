@@ -677,7 +677,24 @@ function compilePredicate(codeStr) {
     if (!code || code === "return true;") return (_) => true;
 
     // Safe evaluation: parse the predicate pattern and create a function
-    // Pattern 1: must_go style - bayes2_score >= X && rating_count >= Y && sentiment check
+    // IMPORTANT: Check more specific patterns FIRST before generic ones
+
+    // Pattern 1: discover style - rating range && review count range && sentiment check (MOST SPECIFIC)
+    const discoverMatch = code.match(/r\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)\s*&&\s*v\s*<=\s*(\d+)\s*&&\s*s\s*!==\s*['"]([^'"]+)['"]/);
+    if (discoverMatch) {
+      const minRating = parseFloat(discoverMatch[1]);
+      const minReviews = parseInt(discoverMatch[2], 10);
+      const maxReviews = parseInt(discoverMatch[3], 10);
+      const excludeSentiment = discoverMatch[4];
+      return (p) => {
+        const r = p.rating ?? 0;
+        const v = p.rating_count ?? 0;
+        const s = p.sentiment_label_ar || '';
+        return r >= minRating && v >= minReviews && v <= maxReviews && s !== excludeSentiment;
+      };
+    }
+
+    // Pattern 2: must_go style - bayes2_score >= X && rating_count >= Y && sentiment check
     const mustGoMatch = code.match(/b2\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)\s*&&\s*s\s*!==\s*['"]([^'"]+)['"]/);
     if (mustGoMatch) {
       const minBayes = parseFloat(mustGoMatch[1]);
@@ -691,7 +708,7 @@ function compilePredicate(codeStr) {
       };
     }
 
-    // Pattern 2: top_rated style - rating >= X && rating_count >= Y
+    // Pattern 3: top_rated style - rating >= X && rating_count >= Y (check AFTER discover)
     const topRatedMatch = code.match(/r\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)/);
     if (topRatedMatch) {
       const minRating = parseFloat(topRatedMatch[1]);
@@ -703,28 +720,13 @@ function compilePredicate(codeStr) {
       };
     }
 
-    // Pattern 3: raqi style - text search in fields
+    // Pattern 4: raqi style - text search in fields
     const raqiMatch = code.match(/const q\s*=\s*['"]([^'"]+)['"]/);
     if (raqiMatch) {
       const searchTerm = raqiMatch[1].toLowerCase();
       return (p) => {
         const haystack = `${p.name} ${(p.tags||[]).join(' ')} ${p.category} ${p.district}`.toLowerCase();
         return haystack.includes(searchTerm);
-      };
-    }
-
-    // Pattern 4: discover style - rating range && review count range && sentiment check
-    const discoverMatch = code.match(/r\s*>=\s*([\d.]+)\s*&&\s*v\s*>=\s*(\d+)\s*&&\s*v\s*<=\s*(\d+)\s*&&\s*s\s*!==\s*['"]([^'"]+)['"]/);
-    if (discoverMatch) {
-      const minRating = parseFloat(discoverMatch[1]);
-      const minReviews = parseInt(discoverMatch[2], 10);
-      const maxReviews = parseInt(discoverMatch[3], 10);
-      const excludeSentiment = discoverMatch[4];
-      return (p) => {
-        const r = p.rating ?? 0;
-        const v = p.rating_count ?? 0;
-        const s = p.sentiment_label_ar || '';
-        return r >= minRating && v >= minReviews && v <= maxReviews && s !== excludeSentiment;
       };
     }
 
