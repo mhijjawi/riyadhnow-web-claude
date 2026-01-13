@@ -123,13 +123,12 @@
           </div>
 
           <div class="menu menu--top" id="menu-catsTop" role="dialog" aria-label="Categories menu (top)">
-            <div class="menu__title">التصنيفات</div>
+            <div class="menu__header">
+              <div class="menu__title">التصنيفات</div>
+              <button class="btn btn--ghost btn--sm" id="clearCatsTop">مسح</button>
+            </div>
             <div class="menu__sub">اختر أكثر من تصنيف</div>
             <div class="menu__items menu__items--wrap" id="catsTopItems"></div>
-            <div class="menu__actions">
-              <button class="btn btn--ghost" id="clearCatsTop">مسح</button>
-              <button class="btn" id="applyCatsTop">تطبيق</button>
-            </div>
           </div>
         </div>
       </div>
@@ -193,17 +192,16 @@
           </div>
 
           <div class="menu" id="menu-tags" role="dialog" aria-label="Tags menu">
-            <div class="menu__title">وسوم</div>
+            <div class="menu__header">
+              <div class="menu__title">وسوم</div>
+              <button class="btn btn--ghost btn--sm" id="clearTags">مسح</button>
+            </div>
             <div class="menu__sub" id="tagsSub">اختر أكثر من وسم</div>
             <div class="menu__search" aria-label="بحث الوسوم">
               <input id="tagsSearch" class="menu__searchInput" type="search" placeholder="ابحث عن وسم..." autocomplete="off" />
               <button id="tagsSearchClear" class="iconbtn" title="مسح" aria-label="مسح بحث الوسوم">✕</button>
             </div>
             <div class="menu__items menu__items--wrap" id="tagsItems"></div>
-            <div class="menu__actions">
-              <button class="btn btn--ghost" id="clearTags">مسح الوسوم</button>
-              <button class="btn" id="applyTags">تطبيق</button>
-            </div>
           </div>
 
           <div class="menu" id="menu-heatmap" role="dialog" aria-label="Heatmap menu">

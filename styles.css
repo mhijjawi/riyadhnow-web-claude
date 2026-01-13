@@ -389,12 +389,19 @@ body{
   max-height: 60vh;
   overflow:auto;
 }
+.menu__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 12px;
+}
 .menu__title{
   font-weight: 900;
   font-size: 15px;
-  margin-bottom: 10px;
   color: rgba(0,0,0,0.92);
   letter-spacing: -0.2px;
+  flex: 1;
 }
 .menu__sub{
   font-size: 12px;
@@ -468,6 +475,12 @@ body{
 .btn--ghost:hover{
   background: rgba(0,0,0,0.08);
   border-color: rgba(0,0,0,0.18);
+}
+.btn--sm{
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  min-width: auto;
 }
 
 /* Options - Enhanced with better states */

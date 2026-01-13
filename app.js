@@ -1216,35 +1216,35 @@ function buildCatsTopMenu() {
         const buttons = [...wrap.querySelectorAll(".opt")];
         buttons.forEach((b, idx) => paint(b, CATEGORIES[idx].key));
       }
+
+      // INSTANT APPLY: Apply filter immediately on click
+      state.categories = new Set(staging);
+      gaEvent("categories_apply", { count: state.categories.size, has_all: state.categories.has("all") ? 1 : 0 });
+      gaTrackFiltersDebounced("categories_apply");
+      syncTopChipLabels();
+      render();
+
       e.stopPropagation();
     });
 
     wrap.appendChild(opt);
   }
 
-  const applyBtn = el("applyCatsTop");
+  // Apply button removed - filters now apply instantly on click
+
   const clearBtn = el("clearCatsTop");
-
-  if (applyBtn) applyBtn.onclick = (e) => {
-    state.categories = new Set(staging);
-
-    gaEvent("categories_apply", { count: state.categories.size, has_all: state.categories.has("all") ? 1 : 0 });
-    gaTrackFiltersDebounced("categories_apply");
-
-    syncTopChipLabels();
-    buildCatsTopMenu();
-    closeMenus();
-    render();
-    e.stopPropagation();
-  };
-
   if (clearBtn) clearBtn.onclick = (e) => {
     staging.clear();
     staging.add("all");
+    state.categories = new Set(staging);
+
     [...wrap.querySelectorAll(".opt")].forEach((b, idx) => b.classList.toggle("is-active", CATEGORIES[idx].key === "all"));
 
     gaEvent("categories_clear", { source: "menu" });
     gaTrackFiltersDebounced("categories_clear");
+
+    syncTopChipLabels();
+    render();
 
     e.stopPropagation();
   };
@@ -1347,30 +1347,23 @@ function buildTagsMenu() {
         if (q) parts.push(`نتائج: ${list.length}`);
         sub.textContent = parts.join(" • ");
       }
+
+      // INSTANT APPLY: Apply filter immediately on click
+      state.tags = new Set(staging);
+      gaEvent("tags_apply", { tags_count: state.tags.size });
+      gaTrackFiltersDebounced("tags_apply");
+      const tv = el("tagsValue");
+      if (tv) tv.textContent = state.tags.size ? `${state.tags.size} وسم` : "الكل";
+      render();
+
       e.stopPropagation();
     });
 
     wrap.appendChild(opt);
   }
 
-  const apply = el("applyTags");
+  // Clear button: Apply instantly after clearing
   const clear = el("clearTags");
-
-  if (apply) apply.onclick = (e) => {
-    state.tags = new Set(staging);
-
-    gaEvent("tags_apply", { tags_count: state.tags.size });
-    gaTrackFiltersDebounced("tags_apply");
-
-    const tv = el("tagsValue");
-    if (tv) tv.textContent = state.tags.size ? `${state.tags.size} وسم` : "الكل";
-    TAGS_DRAFT = null;
-    state.tagsQuery = "";
-    closeMenus();
-    render();
-    e.stopPropagation();
-  };
-
   if (clear) clear.onclick = (e) => {
     staging.clear();
     wrap.querySelectorAll(".opt").forEach(o => o.classList.remove("is-active"));
@@ -1383,6 +1376,13 @@ function buildTagsMenu() {
       if (q) parts.push(`نتائج: ${list.length}`);
       sub.textContent = parts.join(" • ");
     }
+
+    // INSTANT APPLY: Apply changes immediately
+    state.tags = new Set(staging);
+    const tv = el("tagsValue");
+    if (tv) tv.textContent = "الكل";
+    render();
+
     e.stopPropagation();
   };
 }
@@ -1565,8 +1565,33 @@ function getActiveInsightObj() {
 
 function cardPrimaryBadge(p) {
   const t = getActiveInsightObj();
-  if (t && t.key && t.key !== "all") return t.label || "فلتر";
-  return `Trust ${((p.trust ?? 0)).toFixed(2)}`;
+  if (!t || t.key === "all") {
+    // Default: show trust score
+    return `Trust ${((p.trust ?? 0)).toFixed(2)}`;
+  }
+
+  // Smart badges based on insight mode
+  switch (t.key) {
+    case "must_go":
+      // Show bayes score as percentage
+      return `💎 ${((p.bayes2_score ?? 0) * 100).toFixed(0)}%`;
+
+    case "top_rated":
+      // Show rating with stars
+      return `⭐ ${Number(p.rating || 0).toFixed(1)} (${p.rating_count || 0})`;
+
+    case "raqi":
+      // Show price level or trust
+      return p.price_bucket_ar ? `${p.price_bucket_ar}` : `💎 ${((p.bayes2_score ?? 0) * 100).toFixed(0)}%`;
+
+    case "discover":
+      // Show rating + review count (hidden gems)
+      return `🧭 ${Number(p.rating || 0).toFixed(1)} • ${p.rating_count || 0} مراجعة`;
+
+    default:
+      // Fallback to insight label
+      return t.label || "فلتر";
+  }
 }
 
 function render() {
