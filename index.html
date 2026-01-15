@@ -3,7 +3,32 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; script-src 'self' https://unpkg.com https://www.gstatic.com https://www.googletagmanager.com 'unsafe-inline'; script-src-elem 'self' https://unpkg.com https://www.gstatic.com https://www.googletagmanager.com 'unsafe-inline'; style-src 'self' https://unpkg.com https://fonts.googleapis.com 'unsafe-inline'; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.cartocdn.com https://www.google-analytics.com https://www.googletagmanager.com https://www.gstatic.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://places-830507251115.europe-west1.run.app https://get-similar-places-830507251115.europe-west1.run.app https://www.google-analytics.com https://*.googleapis.com https://firebaseinstallations.googleapis.com https://*.tile.openstreetmap.org https://*.cartocdn.com https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://www.gstatic.com; worker-src 'self' blob:; manifest-src 'self'">
+
+  <!-- SEO Meta Tags -->
   <title>RiyadhNow — Smart Map</title>
+  <meta name="description" content="اكتشف أفضل الأماكن والمطاعم في الرياض - خريطة ذكية تساعدك في اختيار وجهتك القادمة بناءً على التقييمات والمراجعات الحقيقية">
+  <meta name="keywords" content="الرياض, مطاعم الرياض, أماكن في الرياض, خريطة الرياض, Riyadh, Riyadh restaurants">
+  <meta name="author" content="RiyadhNow">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://riyadhnow.com">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://riyadhnow.com">
+  <meta property="og:title" content="RiyadhNow — Smart Map">
+  <meta property="og:description" content="اكتشف أفضل الأماكن والمطاعم في الرياض - خريطة ذكية تساعدك في اختيار وجهتك القادمة">
+  <meta property="og:image" content="https://riyadhnow.com/android-chrome-512.png">
+  <meta property="og:locale" content="ar_SA">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://riyadhnow.com">
+  <meta name="twitter:title" content="RiyadhNow — Smart Map">
+  <meta name="twitter:description" content="اكتشف أفضل الأماكن والمطاعم في الرياض">
+  <meta name="twitter:image" content="https://riyadhnow.com/android-chrome-512.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
   <link rel="icon" href="/favicon.ico">
@@ -12,9 +37,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <!-- Security Note: Add integrity hashes in production for supply chain protection -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="styles.css" />
 <!-- Firebase Analytics (GA4) -->
 <script type="module">
@@ -42,6 +68,9 @@
 </script>
 </head>
 <body>
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
   <div class="app">
     <!-- Map canvas -->
     <main class="map" aria-label="Map">
@@ -94,13 +123,12 @@
           </div>
 
           <div class="menu menu--top" id="menu-catsTop" role="dialog" aria-label="Categories menu (top)">
-            <div class="menu__title">التصنيفات</div>
+            <div class="menu__header">
+              <div class="menu__title">التصنيفات</div>
+              <button class="btn btn--ghost btn--sm" id="clearCatsTop">مسح</button>
+            </div>
             <div class="menu__sub">اختر أكثر من تصنيف</div>
             <div class="menu__items menu__items--wrap" id="catsTopItems"></div>
-            <div class="menu__actions">
-              <button class="btn btn--ghost" id="clearCatsTop">مسح</button>
-              <button class="btn" id="applyCatsTop">تطبيق</button>
-            </div>
           </div>
         </div>
       </div>
@@ -164,17 +192,16 @@
           </div>
 
           <div class="menu" id="menu-tags" role="dialog" aria-label="Tags menu">
-            <div class="menu__title">وسوم</div>
+            <div class="menu__header">
+              <div class="menu__title">وسوم</div>
+              <button class="btn btn--ghost btn--sm" id="clearTags">مسح</button>
+            </div>
             <div class="menu__sub" id="tagsSub">اختر أكثر من وسم</div>
             <div class="menu__search" aria-label="بحث الوسوم">
               <input id="tagsSearch" class="menu__searchInput" type="search" placeholder="ابحث عن وسم..." autocomplete="off" />
               <button id="tagsSearchClear" class="iconbtn" title="مسح" aria-label="مسح بحث الوسوم">✕</button>
             </div>
             <div class="menu__items menu__items--wrap" id="tagsItems"></div>
-            <div class="menu__actions">
-              <button class="btn btn--ghost" id="clearTags">مسح الوسوم</button>
-              <button class="btn" id="applyTags">تطبيق</button>
-            </div>
           </div>
 
           <div class="menu" id="menu-heatmap" role="dialog" aria-label="Heatmap menu">
