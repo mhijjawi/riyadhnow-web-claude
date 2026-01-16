@@ -1588,7 +1588,7 @@ async function loadRealPlacesAndBootstrapUI() {
     const district_slug_ar = p.district_slug_ar || "";           // ✅ NEW field from API
     const category = p.category || p.primary_type || p.primary_type_display_name || "other";
     const sentiment = p.sentiment_label_ar || p.sentiment || "محايد";
-    const price = p.price_level_raw || p.price_level || p.price || "الكل";
+    const price = p.price_level || p.price || "الكل";
 
     return {
       id: p.place_id || p.id || p.gid || String(Math.random()),
@@ -1611,7 +1611,7 @@ async function loadRealPlacesAndBootstrapUI() {
       bayes2_score: Number(p.bayes2_score ?? p.trust ?? 0),
 
       sentiment_label_ar: sentiment,
-      price_level_raw: price,
+      price_level: price,
       price_bucket_ar: p.price_bucket_ar || "",
 
       lat: Number(p.lat ?? p.latitude),
