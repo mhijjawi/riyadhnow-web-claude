@@ -1118,12 +1118,13 @@ function selectPlaceById(id, source = "select") {
     if (pin) pin.classList.add("active");
   }
 
-  focusPlace(p);
-
   // Open the popup when clicking from list
   if (marker) {
     try { marker.openPopup(); } catch (_e) { }
   }
+
+  // Center the place on map after popup opens
+  focusPlace(p);
 
   const wrap = document.getElementById("resultsList");
   if (wrap) {
