@@ -1829,8 +1829,6 @@ function render() {
         <span class="stat">⭐ ${Number(p.rating || 0).toFixed(1)}</span>
         <span class="stat">🗣️ ${Number(p.reviews || 0)}</span>
         <span class="stat">🙂 ${escapeHtml(p.sentiment || "")}</span>
-        <span class="stat">✅ ${(p.trust ?? 0).toFixed(2)}</span>
-        <span class="stat">💵 ${escapeHtml(p.price || "—")}</span>
       </div>
     `;
     wrap.appendChild(card);
