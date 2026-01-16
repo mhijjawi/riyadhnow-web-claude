@@ -672,6 +672,7 @@ body{
 /* Ensure UI overlays stay above the map */
 .topbar{ z-index: 50; }
 .panel{ z-index: 60; }
+.leaflet-popup-pane{ z-index: 1000 !important; }
 
 
 /* Stage B: selected place highlight */
