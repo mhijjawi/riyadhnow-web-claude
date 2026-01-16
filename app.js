@@ -533,6 +533,78 @@ async function focusDistrict(key) {
   try { MAP.fitBounds(b, { padding: [30, 30] }); } catch (_e) { }
 }
 
+// Find which district contains a given lat/lng point
+async function findDistrictForLocation(lat, lng) {
+  if (!lat || !lng) return null;
+
+  const m = await loadDistrictGeojsonMap();
+  if (!m) return null;
+
+  const point = L.latLng(lat, lng);
+
+  // Check each district to see if the point is inside
+  for (const [districtKey, featureCollection] of Object.entries(m)) {
+    if (!featureCollection || !featureCollection.features) continue;
+
+    // Create a temporary layer to check if point is inside
+    try {
+      const layer = L.geoJSON(featureCollection);
+      let isInside = false;
+
+      layer.eachLayer((l) => {
+        if (l.getBounds && l.getBounds().contains(point)) {
+          // More precise check using polygon contains
+          if (l.feature && l.feature.geometry && l.feature.geometry.coordinates) {
+            const poly = l.feature.geometry.coordinates;
+            if (pointInPolygon([lng, lat], poly)) {
+              isInside = true;
+            }
+          }
+        }
+      });
+
+      if (isInside) {
+        return districtKey;
+      }
+    } catch (e) {
+      console.warn(`[District] Error checking district ${districtKey}:`, e);
+    }
+  }
+
+  return null;
+}
+
+// Point-in-polygon algorithm for GeoJSON coordinates
+function pointInPolygon(point, polygon) {
+  const x = point[0];
+  const y = point[1];
+
+  // Handle both Polygon and MultiPolygon
+  let rings = polygon;
+  if (polygon[0] && Array.isArray(polygon[0][0]) && Array.isArray(polygon[0][0][0])) {
+    // MultiPolygon - check all polygons
+    for (const poly of polygon) {
+      if (pointInPolygon(point, poly)) return true;
+    }
+    return false;
+  }
+
+  // Single Polygon - check outer ring (first ring)
+  const ring = rings[0];
+  if (!ring || !Array.isArray(ring)) return false;
+
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
 // ================================
 // Leaflet map init + tiles
 // ================================
@@ -579,11 +651,114 @@ function initLeafletMap() {
 let USER_LOC_MARKER = null;
 let USER_LOC_CIRCLE = null;
 
+// Shared geolocation trigger function
+function triggerGeolocation(options = {}) {
+  const { isAuto = false, setBusy = null, showError = null } = options;
+
+  if (!navigator.geolocation) {
+    if (!isAuto && showError) {
+      showError("Geolocation is not supported on this device.");
+    }
+    return;
+  }
+
+  const map = initLeafletMap();
+  if (!map) return;
+
+  if (setBusy) setBusy(true);
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      if (setBusy) setBusy(false);
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = Math.max(10, pos.coords.accuracy || 50);
+
+      if (USER_LOC_MARKER) {
+        USER_LOC_MARKER.setLatLng([lat, lng]);
+      } else {
+        USER_LOC_MARKER = L.circleMarker([lat, lng], {
+          radius: 7,
+          weight: 2,
+          fillOpacity: 0.9,
+        }).addTo(map);
+      }
+
+      if (USER_LOC_CIRCLE) {
+        USER_LOC_CIRCLE.setLatLng([lat, lng]);
+        USER_LOC_CIRCLE.setRadius(acc);
+      } else {
+        USER_LOC_CIRCLE = L.circle([lat, lng], {
+          radius: acc,
+          weight: 1,
+          fillOpacity: 0.10,
+        }).addTo(map);
+      }
+
+      // Find and auto-select district if location is within one
+      try {
+        const foundDistrict = await findDistrictForLocation(lat, lng);
+        if (foundDistrict) {
+          // Auto-select the district
+          state.district = foundDistrict;
+          const districtEl = el("district");
+          if (districtEl) districtEl.value = foundDistrict;
+
+          // Show district boundary
+          showSelectedDistrictBoundary(foundDistrict);
+
+          // Render with new district filter
+          render();
+
+          // Zoom out to show places in the district
+          await focusDistrict(foundDistrict);
+
+          gaEvent("locate_me", { ok: true, accuracy_m: Math.round(acc), district: foundDistrict, auto: isAuto });
+        } else {
+          // Location not in any district, just zoom to location
+          const targetZoom = Math.max(map.getZoom(), 14);
+          map.setView([lat, lng], targetZoom, { animate: true });
+
+          gaEvent("locate_me", { ok: true, accuracy_m: Math.round(acc), district: "none", auto: isAuto });
+        }
+      } catch (err) {
+        console.warn("[Geolocation] District detection failed:", err);
+        // Fallback: just zoom to location
+        const targetZoom = Math.max(map.getZoom(), 14);
+        map.setView([lat, lng], targetZoom, { animate: true });
+
+        gaEvent("locate_me", { ok: true, accuracy_m: Math.round(acc), auto: isAuto });
+      }
+    },
+    (err) => {
+      if (setBusy) setBusy(false);
+      gaEvent("locate_me", { ok: false, code: err && err.code, message: err && err.message, auto: isAuto });
+
+      // Only show error toast if not auto-detect
+      if (!isAuto && showError) {
+        const msg =
+          (err && err.code === 1) ? "تم رفض مشاركة الموقع." :
+          (err && err.code === 2) ? "تعذر تحديد موقعك حالياً." :
+          (err && err.code === 3) ? "انتهت مهلة تحديد الموقع." :
+          "تعذر الحصول على موقعك.";
+        showError(msg);
+      } else if (isAuto) {
+        // Silent fail for auto-detect - user didn't explicitly request it
+        console.log("[Geolocation] Auto-detect failed silently:", err && err.code);
+      }
+    },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+  );
+}
+
+// Auto-detect location on startup
+function autoDetectLocation() {
+  triggerGeolocation({ isAuto: true });
+}
+
 function initLocateMe() {
   const btn = el("locateBtn");
   if (!btn) return;
-
-  const map = initLeafletMap();
 
   const setBusy = (busy) => {
     btn.disabled = !!busy;
@@ -598,60 +773,7 @@ function initLocateMe() {
     ev && ev.preventDefault && ev.preventDefault();
     ev && ev.stopPropagation && ev.stopPropagation();
 
-    if (!navigator.geolocation) {
-      showError("Geolocation is not supported on this device.");
-      return;
-    }
-
-    setBusy(true);
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setBusy(false);
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        const acc = Math.max(10, pos.coords.accuracy || 50);
-
-        if (USER_LOC_MARKER) {
-          USER_LOC_MARKER.setLatLng([lat, lng]);
-        } else {
-          USER_LOC_MARKER = L.circleMarker([lat, lng], {
-            radius: 7,
-            weight: 2,
-            fillOpacity: 0.9,
-          }).addTo(map);
-        }
-
-        if (USER_LOC_CIRCLE) {
-          USER_LOC_CIRCLE.setLatLng([lat, lng]);
-          USER_LOC_CIRCLE.setRadius(acc);
-        } else {
-          USER_LOC_CIRCLE = L.circle([lat, lng], {
-            radius: acc,
-            weight: 1,
-            fillOpacity: 0.10,
-          }).addTo(map);
-        }
-
-        // Zoom similar to Google Maps "my location"
-        const targetZoom = Math.max(map.getZoom(), 16);
-        map.setView([lat, lng], targetZoom, { animate: true });
-
-        gaEvent("locate_me", { ok: true, accuracy_m: Math.round(acc) });
-      },
-      (err) => {
-        setBusy(false);
-        gaEvent("locate_me", { ok: false, code: err && err.code, message: err && err.message });
-        // Friendly message (Arabic-first)
-        const msg =
-          (err && err.code === 1) ? "تم رفض مشاركة الموقع." :
-          (err && err.code === 2) ? "تعذر تحديد موقعك حالياً." :
-          (err && err.code === 3) ? "انتهت مهلة تحديد الموقع." :
-          "تعذر الحصول على موقعك.";
-        showError(msg);
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
-    );
+    triggerGeolocation({ isAuto: false, setBusy, showError });
   };
 
   // iOS Safari sometimes prefers touchend over click
@@ -1167,7 +1289,7 @@ function buildInsightTopMenu() {
     opt.type = "button";
     opt.className = "opt" + (state.insight === it.key ? " is-active" : "");
     opt.innerHTML = `<span>${it.emoji} ${it.label}</span><span class="badge">${state.insight === it.key ? "✓" : ""}</span>`;
-    opt.addEventListener("click", (e) => {
+    opt.addEventListener("click", async (e) => {
       state.insight = it.key;
 
       gaEvent("insight_pick", { insight_mode: it.key });
@@ -1177,6 +1299,16 @@ function buildInsightTopMenu() {
       syncTopChipLabels();
       closeMenus();
       render();
+
+      // Zoom out to show places matching the new insight filter in the selected district
+      if (state.district && state.district !== "all") {
+        try {
+          await focusDistrict(state.district);
+        } catch (err) {
+          console.warn("[Insight] Failed to focus district after insight change:", err);
+        }
+      }
+
       e.stopPropagation();
     });
     wrap.appendChild(opt);
@@ -1456,7 +1588,7 @@ async function loadRealPlacesAndBootstrapUI() {
     const district_slug_ar = p.district_slug_ar || "";           // ✅ NEW field from API
     const category = p.category || p.primary_type || p.primary_type_display_name || "other";
     const sentiment = p.sentiment_label_ar || p.sentiment || "محايد";
-    const price = p.price_level || p.price || "الكل";
+    const price = p.price_level_raw || p.price_level || p.price || "الكل";
 
     return {
       id: p.place_id || p.id || p.gid || String(Math.random()),
@@ -1479,7 +1611,7 @@ async function loadRealPlacesAndBootstrapUI() {
       bayes2_score: Number(p.bayes2_score ?? p.trust ?? 0),
 
       sentiment_label_ar: sentiment,
-      price_level: price,
+      price_level_raw: price,
       price_bucket_ar: p.price_bucket_ar || "",
 
       lat: Number(p.lat ?? p.latitude),
@@ -1627,7 +1759,9 @@ function render() {
   if (!wrap) return;
   wrap.innerHTML = "";
 
-  for (const p of list) {
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const rank = i + 1;
     const card = document.createElement("div");
     card.className = "card";
     card.dataset.id = String(p.id);
@@ -1635,7 +1769,7 @@ function render() {
     card.innerHTML = `
       <div class="card__top">
         <div>
-          <div class="card__name">${escapeHtml(p.name)}</div>
+          <div class="card__name">${rank}. ${escapeHtml(p.name)}</div>
           <div class="card__sub">${escapeHtml(p.district)} • ${escapeHtml(p.category)}</div>
         </div>
         <div class="badge">${escapeHtml(cardPrimaryBadge(p))}</div>
@@ -1944,6 +2078,9 @@ async function init() {
   gaTrackFiltersDebounced("init");
 
   render();
+
+  // Auto-detect user location and select district on first load
+  autoDetectLocation();
 }
 
 // Keep map sized properly
