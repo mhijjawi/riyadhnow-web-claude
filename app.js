@@ -1120,6 +1120,11 @@ function selectPlaceById(id, source = "select") {
 
   focusPlace(p);
 
+  // Open the popup when clicking from list
+  if (marker) {
+    try { marker.openPopup(); } catch (_e) { }
+  }
+
   const wrap = document.getElementById("resultsList");
   if (wrap) {
     wrap.querySelectorAll(".card.is-selected").forEach(x => x.classList.remove("is-selected"));
