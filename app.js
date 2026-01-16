@@ -530,7 +530,39 @@ async function focusDistrict(key) {
   const b = computeGeojsonBounds(fc);
   if (!b) return;
 
-  try { MAP.fitBounds(b, { padding: [30, 30] }); } catch (_e) { }
+  // Calculate dynamic padding based on UI elements
+  let topPadding = 30;
+  let bottomPadding = 30;
+  let leftPadding = 30;
+  let rightPadding = 30;
+
+  try {
+    const isDesktop = window.matchMedia("(min-width: 980px)").matches;
+
+    // Account for topbar (search box + filters)
+    const topbar = document.querySelector(".topbar");
+    if (topbar) {
+      const topbarHeight = topbar.getBoundingClientRect().height || 0;
+      topPadding = Math.max(topPadding, topbarHeight + 80); // 80px extra for spacing above topbar
+    }
+
+    // Account for bottom panel on mobile
+    if (!isDesktop) {
+      const panel = document.getElementById("panel");
+      if (panel) {
+        const panelHeight = panel.getBoundingClientRect().height || 0;
+        bottomPadding = Math.max(bottomPadding, panelHeight + 20);
+      }
+    }
+  } catch (_e) { }
+
+  try {
+    MAP.fitBounds(b, {
+      paddingTopLeft: [leftPadding, topPadding],
+      paddingBottomRight: [rightPadding, bottomPadding],
+      animate: true
+    });
+  } catch (_e) { }
 }
 
 // Find which district contains a given lat/lng point
