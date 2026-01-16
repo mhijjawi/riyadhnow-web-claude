@@ -997,7 +997,7 @@ function setMarkers(places) {
     });
 
     const m = L.marker([lat, lng], { icon, keyboard: false }).addTo(MARKERS_LAYER);
-    m.bindPopup(popupHtml(p), { closeButton: true, autoPanPadding: [16, 16] });
+    m.bindPopup(popupHtml(p), { closeButton: true, autoPan: false, autoPanPadding: [16, 16] });
     m.on("click", () => {
       selectPlaceById(p.id, "marker");
       try { m.openPopup(); } catch (_e) { }
@@ -1069,17 +1069,30 @@ function focusPlace(p) {
   let centerLatLng = L.latLng(lat, lng);
 
   try {
+    const mapContainer = MAP.getContainer();
+    const mapHeight = mapContainer ? mapContainer.offsetHeight : window.innerHeight;
     const isDesktop = window.matchMedia("(min-width: 980px)").matches;
+
+    let offsetY = 0;
+
+    // Account for bottom panel on mobile
     if (!isDesktop) {
       const panel = document.getElementById("panel");
       if (panel) {
         const ph = panel.getBoundingClientRect().height || 0;
         if (ph > 0) {
-          const pxOffsetY = Math.round(ph * 0.35);
-          const targetPoint = MAP.project(centerLatLng, zoom);
-          centerLatLng = MAP.unproject(targetPoint.add([0, pxOffsetY]), zoom);
+          offsetY += Math.round(ph * 0.4);
         }
       }
+    }
+
+    // Account for popup appearing above marker (approximately 120px)
+    // Shift map down so popup and marker are both visible
+    offsetY -= 60;
+
+    if (offsetY !== 0) {
+      const targetPoint = MAP.project(centerLatLng, zoom);
+      centerLatLng = MAP.unproject(targetPoint.add([0, offsetY]), zoom);
     }
   } catch (_e) { }
 
