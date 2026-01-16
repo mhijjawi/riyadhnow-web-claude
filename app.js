@@ -521,13 +521,30 @@ function showSelectedDistrictBoundary(districtName) {
 
 async function focusDistrict(key) {
   if (!MAP) return;
-  if (!key || key === "all") return;
+  if (!key) return;
 
-  const m = await loadDistrictGeojsonMap();
-  const fc = m[key];
-  if (!fc) return;
+  let b = null;
 
-  const b = computeGeojsonBounds(fc);
+  // Handle "all" case - fit all visible markers
+  if (key === "all") {
+    const bounds = [];
+    MARKERS_BY_ID.forEach((marker) => {
+      const latLng = marker.getLatLng();
+      if (latLng) {
+        bounds.push([latLng.lat, latLng.lng]);
+      }
+    });
+    if (bounds.length >= 2) {
+      b = L.latLngBounds(bounds);
+    }
+  } else {
+    // Handle specific district
+    const m = await loadDistrictGeojsonMap();
+    const fc = m[key];
+    if (!fc) return;
+    b = computeGeojsonBounds(fc);
+  }
+
   if (!b) return;
 
   // Calculate dynamic padding based on UI elements
