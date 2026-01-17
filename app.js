@@ -1689,6 +1689,7 @@ async function loadRealPlacesAndBootstrapUI() {
 
       summary: p.summary || "",
       link: p.link || "",
+      pros_ar: Array.isArray(p.pros_ar) ? p.pros_ar : [],
     };
   });
 
@@ -1804,8 +1805,10 @@ function render() {
 
   const titleEl = el("resultsTitle");
   const metaEl = el("resultsMeta");
+  const panelTitleEl = el("panelInsightTitle");
 
   if (titleEl) titleEl.textContent = state.similarMode ? `أماكن مشابهة` : `قائمة الأماكن (${insightLabel})`;
+  if (panelTitleEl) panelTitleEl.textContent = state.similarMode ? `أماكن مشابهة` : insightLabel;
 
   const distLabel = (state.district === "all") ? "كل الأحياء" : state.district;
   if (metaEl) metaEl.textContent = `${distLabel} • ${catsPart}${qPart} ${tagsPart} ${heatPart}`.trim();
@@ -1834,19 +1837,19 @@ function render() {
     card.className = "card";
     card.dataset.id = String(p.id);
     card.addEventListener("click", () => selectPlaceById(p.id, "list"));
+    const sentimentEmoji = p.sentiment === "إيجابي" ? "🙂" : p.sentiment === "سلبي" ? "😞" : "😐";
+    const pros = Array.isArray(p.pros_ar) ? p.pros_ar.filter(Boolean).slice(0, 3) : [];
+
     card.innerHTML = `
-      <div class="card__top">
-        <div>
-          <div class="card__name">${rank}. ${escapeHtml(p.name)}</div>
-          <div class="card__sub">${escapeHtml(p.district)} • ${escapeHtml(p.category)}</div>
-        </div>
+      <div class="card__header">
+        <div class="card__name">${rank}. ${escapeHtml(p.name)}</div>
         <div class="badge">${escapeHtml(cardPrimaryBadge(p))}</div>
       </div>
-      <div class="card__stats">
-        <span class="stat">⭐ ${Number(p.rating || 0).toFixed(1)}</span>
-        <span class="stat">🗣️ ${Number(p.reviews || 0)}</span>
-        <span class="stat">🙂 ${escapeHtml(p.sentiment || "")}</span>
+      <div class="card__meta">
+        ${escapeHtml(p.district)} • ${escapeHtml(p.category)} • ⭐ ${Number(p.rating || 0).toFixed(1)} • 🗣️ ${Number(p.reviews || 0)} • ${sentimentEmoji} ${escapeHtml(p.sentiment || "")}
       </div>
+      ${p.summary ? `<div class="card__summary">${escapeHtml(p.summary)}</div>` : ''}
+      ${pros.length > 0 ? `<div class="card__pros">${pros.map(pr => `<span class="pro-tag">${escapeHtml(pr)}</span>`).join('')}</div>` : ''}
     `;
     wrap.appendChild(card);
   }
@@ -2119,6 +2122,18 @@ async function init() {
 
   const resetTopEl = el("resetTop");
   if (resetTopEl) resetTopEl.addEventListener("click", resetAllFiltersToDefault);
+
+  // Filter toggle button
+  const filterToggleBtn = el("filterToggleBtn");
+  const filtersRow = el("filtersRow");
+  if (filterToggleBtn && filtersRow) {
+    filterToggleBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const isVisible = filtersRow.style.display !== "none";
+      filtersRow.style.display = isVisible ? "none" : "flex";
+      filterToggleBtn.classList.toggle("active", !isVisible);
+    });
+  }
 
   // Close menus
   document.addEventListener("click", () => closeMenus());

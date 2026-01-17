@@ -147,8 +147,16 @@
       </div>
 
       <header class="panel__top">
-        <!-- One-row filters like Google Maps -->
-        <div class="filtersRow" aria-label="Quick filters row">
+        <!-- Compact header row with insight title and filter toggle -->
+        <div class="panel__header">
+          <div class="panel__title" id="panelInsightTitle">قائمة الأماكن</div>
+          <button class="filterToggleBtn" id="filterToggleBtn" aria-label="Toggle filters" title="Filters">
+            <span class="filterToggleBtn__icon">🔎</span>
+          </button>
+        </div>
+
+        <!-- Collapsible filters row -->
+        <div class="filtersRow" id="filtersRow" aria-label="Quick filters row" style="display: none;">
           <button class="chip" data-menu="sentiment">
             <span class="chip__label">المشاعر</span>
             <span class="chip__value" id="sentimentValue">الكل</span>
