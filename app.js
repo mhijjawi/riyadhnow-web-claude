@@ -1837,6 +1837,7 @@ function render() {
     card.addEventListener("click", () => selectPlaceById(p.id, "list"));
     const sentimentEmoji = p.sentiment === "إيجابي" ? "🙂" : p.sentiment === "سلبي" ? "😞" : "😐";
     const pros = Array.isArray(p.pros_ar) ? p.pros_ar.filter(Boolean).slice(0, 3) : [];
+    const districtAr = districtLabelArFromSlug(p.district) || p.district;
 
     card.innerHTML = `
       <div class="card__header">
@@ -1844,7 +1845,7 @@ function render() {
         <div class="badge">${escapeHtml(cardPrimaryBadge(p))}</div>
       </div>
       <div class="card__meta">
-        ${escapeHtml(p.district)} • ${escapeHtml(p.category)} • ⭐ ${Number(p.rating || 0).toFixed(1)} • 🗣️ ${Number(p.reviews || 0)} • ${sentimentEmoji} ${escapeHtml(p.sentiment || "")}
+        ${escapeHtml(districtAr)} • ${escapeHtml(p.category)} • ⭐ ${Number(p.rating || 0).toFixed(1)} • 🗣️ ${Number(p.reviews || 0)} • ${sentimentEmoji} ${escapeHtml(p.sentiment || "")}
       </div>
       ${p.summary ? `<div class="card__summary">${escapeHtml(p.summary)}</div>` : ''}
       ${pros.length > 0 ? `<div class="card__pros">${pros.map(pr => `<span class="pro-tag">${escapeHtml(pr)}</span>`).join('')}</div>` : ''}
