@@ -1803,11 +1803,9 @@ function render() {
   const heatPart = state.heatmap !== "Off" ? `• Heatmap: ${state.heatmap}` : "";
   const catsPart = state.categories.has("all") ? "الكل" : [...state.categories].join("+");
 
-  const titleEl = el("resultsTitle");
   const metaEl = el("resultsMeta");
   const panelTitleEl = el("panelInsightTitle");
 
-  if (titleEl) titleEl.textContent = state.similarMode ? `أماكن مشابهة` : `قائمة الأماكن (${insightLabel})`;
   if (panelTitleEl) panelTitleEl.textContent = state.similarMode ? `أماكن مشابهة` : insightLabel;
 
   const distLabel = (state.district === "all") ? "كل الأحياء" : state.district;

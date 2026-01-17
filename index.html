@@ -149,7 +149,10 @@
       <header class="panel__top">
         <!-- Compact header row with insight title and filter toggle -->
         <div class="panel__header">
-          <div class="panel__title" id="panelInsightTitle">قائمة الأماكن</div>
+          <div class="panel__header-content">
+            <div class="panel__title" id="panelInsightTitle">قائمة الأماكن</div>
+            <div class="panel__meta" id="resultsMeta">—</div>
+          </div>
           <button class="filterToggleBtn" id="filterToggleBtn" aria-label="Toggle filters" title="Filters">
             <span class="filterToggleBtn__icon">🔎</span>
           </button>
@@ -220,11 +223,6 @@
       </header>
 
       <section class="results">
-        <div class="results__head">
-          <div class="results__title" id="resultsTitle">قائمة الأماكن</div>
-          <div class="results__meta" id="resultsMeta">—</div>
-        </div>
-
         <div id="resultsList" class="results__list" aria-label="Results list"></div>
       </section>
     </aside>

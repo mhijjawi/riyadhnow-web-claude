@@ -341,17 +341,29 @@ body{
 /* Panel header with insight title and filter toggle */
 .panel__header{
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 8px;
+  gap: 10px;
+}
+
+.panel__header-content{
+  flex: 1;
+  min-width: 0;
 }
 
 .panel__title{
   font-weight: 900;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.3;
   color: rgba(0,0,0,0.92);
-  flex: 1;
+  margin-bottom: 3px;
+}
+
+.panel__meta{
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .filterToggleBtn{
@@ -583,25 +595,12 @@ body{
   display:flex;
   flex-direction:column;
 }
-.results__head{
-  padding: 8px 14px 6px;
-  display:flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.results__title{ font-weight: 900; }
-.results__meta{
-  font-size: 12px;
-  color: var(--muted);
-}
-
 
 .results__list{
-  padding: 0 14px 14px;
+  padding: 8px 14px 14px;
   overflow:auto;
   -webkit-overflow-scrolling: touch;
+  flex: 1;
 }
 .card{
   border: 1px solid rgba(0,0,0,0.08);
